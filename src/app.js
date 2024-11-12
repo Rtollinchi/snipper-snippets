@@ -3,8 +3,8 @@ const app = express();
 const port = 3000;
 const routes = require("./routes");
 
-app.use("/snippets", routes);
 app.use(express.json());
+app.use("/snippets", routes);
 
 app.get("/", (req, res) => {
   res.send("Hello World!");
