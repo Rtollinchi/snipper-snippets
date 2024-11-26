@@ -13,7 +13,9 @@ function encrypt(plainText) {
   let encryptedText = cipher.update(plainText, "utf8", "hex");
   encryptedText += cipher.final("hex");
 
-  return iv.toString("hex") + ":" + encryptedText;
+  const result = iv.toString("hex") + ":" + encryptedText;
+
+  return result;
 }
 
 function decrypt(input) {

@@ -1,13 +1,13 @@
 const express = require("express");
 const app = express();
 const port = 3000;
-const routes = require("./routes");
+const routes = require("./src/routes");
 
 app.use(express.json());
-app.use("/snippets", routes);
+app.use("/", routes);
 
 app.get("/", (req, res) => {
-  res.send("Hello World!");
+  res.send("Its connected");
 });
 
 app.listen(port, () => {
