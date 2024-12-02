@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const { encrypt, decrypt } = require("../utils/encryption");
 const bcrypt = require("bcrypt");
+const jwt = require("jsonwebtoken");
 
 let snippets = [
   {
@@ -53,7 +54,26 @@ snippets = snippets.map((snippet) => ({
 
 let users = [];
 
-router.get("/snippets", (req, res) => {
+const authenticateToken = (req, res, next) => {
+  const authHeader = req.headers["authorization"];
+  if (!authHeader) {
+    return res.status(401).json({ message: "Authorization header missing" });
+  }
+
+  const token = authHeader.split(" ")[1];
+  if (!token) {
+    return res.status(401).json({ message: "Token missing" });
+  }
+  try {
+    const user = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = user;
+    next();
+  } catch (error) {
+    res.status(403).json({ message: "Invalid token" });
+  }
+};
+
+router.get("/snippets", authenticateToken, (req, res) => {
   const { language } = req.query;
 
   let filteredList = snippets;
@@ -124,7 +144,14 @@ router.post("/login", async (req, res) => {
     return res.status(401).json({ message: "Invalid email or password" });
   }
 
-  res.json({ message: "Login successful" });
+  const token = jwt.sign(
+    { id: user.id, email: user.email },
+    process.env.JWT_SECRET,
+    {
+      expiresIn: process.env.JWT_EXPIRES_IN,
+    }
+  );
+  res.json({ token });
 });
 
 router.get("/user", async (req, res) => {
