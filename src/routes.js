@@ -1,8 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const { encrypt, decrypt } = require("../utils/encryption");
-const bcrypt = require("bcrypt");
-const jwt = require("jsonwebtoken");
+const { requiresAuth } = require("express-openid-connect");
 
 let snippets = [
   {
@@ -52,28 +51,7 @@ snippets = snippets.map((snippet) => ({
   code: encrypt(snippet.code),
 }));
 
-let users = [];
-
-const authenticateToken = (req, res, next) => {
-  const authHeader = req.headers["authorization"];
-  if (!authHeader) {
-    return res.status(401).json({ message: "Authorization header missing" });
-  }
-
-  const token = authHeader.split(" ")[1];
-  if (!token) {
-    return res.status(401).json({ message: "Token missing" });
-  }
-  try {
-    const user = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = user;
-    next();
-  } catch (error) {
-    res.status(403).json({ message: "Invalid token" });
-  }
-};
-
-router.get("/snippets", authenticateToken, (req, res) => {
+router.get("/snippets", requiresAuth(), (req, res) => {
   const { language } = req.query;
 
   let filteredList = snippets;
@@ -87,7 +65,7 @@ router.get("/snippets", authenticateToken, (req, res) => {
   res.json(filteredList);
 });
 
-router.get("/snippet/:id", (req, res) => {
+router.get("/snippet/:id", requiresAuth(), (req, res) => {
   const snippet = snippets.find(
     (snippet) => snippet.id === parseInt(req.params.id, 10)
   );
@@ -99,7 +77,7 @@ router.get("/snippet/:id", (req, res) => {
   }
 });
 
-router.post("/snippet", (req, res) => {
+router.post("/snippet", requiresAuth(), (req, res) => {
   const { language, code } = req.body;
 
   const newSnippet = {
@@ -110,68 +88,6 @@ router.post("/snippet", (req, res) => {
 
   snippets.push(newSnippet);
   res.json(newSnippet);
-});
-
-router.post("/user", async (req, res) => {
-  const { email, password } = req.body;
-  try {
-    const hashedPassword = await bcrypt.hash(password, 10);
-    console.log(hashedPassword);
-
-    const newUser = {
-      id: users.length > 0 ? users[users.length - 1].id + 1 : 1,
-      email,
-      password: hashedPassword,
-    };
-    users.push(newUser);
-    res.json(newUser);
-    console.log(users);
-  } catch (error) {
-    res.json({ error: error.message });
-  }
-});
-
-router.post("/login", async (req, res) => {
-  const { email, password } = req.body;
-
-  const user = users.find((user) => user.email === email);
-  if (!user) {
-    return res.status(401).json({ message: "Invalid email or password" });
-  }
-
-  const isPasswordValid = await bcrypt.compare(password, user.password);
-  if (!isPasswordValid) {
-    return res.status(401).json({ message: "Invalid email or password" });
-  }
-
-  const token = jwt.sign(
-    { id: user.id, email: user.email },
-    process.env.JWT_SECRET,
-    {
-      expiresIn: process.env.JWT_EXPIRES_IN,
-    }
-  );
-  res.json({ token });
-});
-
-router.get("/user", async (req, res) => {
-  const { email, password } = req.headers;
-
-  if (!email || !password) {
-    return res.status(401).json({ message: "Missing credentials" });
-  }
-
-  const user = users.find((user) => user.email === email);
-  if (!user) {
-    return res.status(401).json({ message: "Invalid email or password" });
-  }
-
-  const isPasswordValid = await bcrypt.compare(password, user.password);
-  if (!isPasswordValid) {
-    return res.status(401).json({ message: "Invalid email or password" });
-  }
-
-  res.json({ id: user.id, email: user.email });
 });
 
 module.exports = router;
